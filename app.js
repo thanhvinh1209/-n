@@ -211,7 +211,10 @@ function createDeviceNode(device) {
     node.style.top = `${topOffset}%`;
     
     // Icon thiết bị
-    const iconClass = isBlocked ? 'fa-ban' : device.icon;
+    let iconClass = isBlocked ? 'fa-ban' : device.icon;
+    if (device.authorized && iconClass === 'fa-user-secret') {
+        iconClass = 'fa-laptop';
+    }
     node.innerHTML = `<i class="fa-solid ${iconClass}"></i><span class="node-label">${device.name}</span>`;
     
     // Sự kiện click để xem chi tiết
@@ -321,10 +324,15 @@ function updateDeviceTable() {
             actionBtn = `<span class="text-muted" style="font-size: 11px;">Gateway Chính</span>`;
         }
 
+        let displayIcon = device.icon;
+        if (device.authorized && displayIcon === 'fa-user-secret') {
+            displayIcon = 'fa-laptop';
+        }
+
         tr.innerHTML = `
             <td><strong>${device.ip}</strong></td>
             <td><code>${device.mac}</code></td>
-            <td><i class="fa-solid ${device.icon}"></i> ${device.name}</td>
+            <td><i class="fa-solid ${displayIcon}"></i> ${device.name}</td>
             <td>${device.vendor}</td>
             <td>${statusBadge}</td>
             <td>${actionBtn}</td>
@@ -441,6 +449,10 @@ window.authorizeDevice = function(mac, defaultName) {
     if (device) {
         device.authorized = true;
         device.name = deviceName;
+        // Đổi hình hacker thành hình máy tính lập tức trên giao diện
+        if (device.icon === 'fa-user-secret') {
+            device.icon = 'fa-laptop';
+        }
     }
     systemState.blockedDevices.delete(mac);
     
@@ -470,6 +482,11 @@ window.unauthorizeDevice = function(mac) {
         
     if (device) {
         device.authorized = false;
+        // Đổi icon về lại hình thám tử/hacker (trạng thái trái phép ban đầu)
+        if (device.icon === 'fa-laptop' && device.type === 'unknown') {
+            device.icon = 'fa-user-secret';
+        }
+        device.name = "Thiết bị lạ (UNKNOWN DEVICE)";
     }
     
     initNetworkMap();
