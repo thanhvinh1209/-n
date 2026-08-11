@@ -40,6 +40,9 @@ let systemState = {
     blockedDevices: new Set()
 };
 
+let demoRogueActive = false;
+let IS_DEMO_MODE = false;
+
 // ==========================================
 // KHỞI TẠO DOM ELEMENTS
 // ==========================================
@@ -539,12 +542,17 @@ btnScan.addEventListener('click', async () => {
     } catch (err) {
         console.error("Scan error:", err);
         systemState.isScanning = false;
-        scanBadge.textContent = "Lỗi kết nối";
-        scanBadge.className = "badge danger";
-        addLog("[LỖI] Không thể kết nối tới Python Scanner Backend!", "danger-log");
-        addLog("➡ Hướng dẫn: Mở Command Prompt bằng quyền Administrator, vào thư mục d:\\iot rồi chạy: khoi_chay.bat", "warning-log");
-        addLog("➡ Hoặc chạy trực tiếp: py -u scanner.py (trong thư mục d:\\iot)", "warning-log");
-        updateStatistics();
+        
+        if (confirm("Không kết nối được tới Python Backend (hoặc do chạy trên GitHub Pages).\n\nBạn có muốn chuyển sang CHẾ ĐỘ GIẢ LẬP (Demo Mode) để chạy thử giao diện không?")) {
+            runDemoSimulation();
+        } else {
+            scanBadge.textContent = "Lỗi kết nối";
+            scanBadge.className = "badge danger";
+            addLog("[LỖI] Không thể kết nối tới Python Scanner Backend!", "danger-log");
+            addLog("➡ Hướng dẫn: Mở Command Prompt bằng quyền Administrator, vào thư mục d:\\iot rồi chạy: khoi_chay.bat", "warning-log");
+            addLog("➡ Hoặc chạy trực tiếp: py -u scanner.py (trong thư mục d:\\iot)", "warning-log");
+            updateStatistics();
+        }
     }
 });
 
@@ -772,4 +780,137 @@ if (terminalInput) {
             }
         }
     });
+}
+
+// ==========================================
+// CHẾ ĐỘ GIẢ LẬP (DEMO MODE) CHO GITHUB PAGES
+// ==========================================
+async function runDemoSimulation() {
+    systemState.isScanning = true;
+    systemState.hasScanned = false;
+    systemState.activeDevices = [];
+    systemState.isRoguePresent = false;
+    systemState.unauthorizedDetected = false;
+    systemState.blockedDevices.clear();
+
+    scanBadge.textContent = "Đang quét (Demo)...";
+    scanBadge.className = "badge scanning";
+    initNetworkMap();
+    updateDeviceTable();
+    updateStatistics();
+    
+    terminalLogs.innerHTML = '';
+    addLog("[DEMO] Đang khởi chạy quét mạng GIẢ LẬP (Không kết nối Backend)...", "scan-log");
+    
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    await sleep(800);
+    addLog("[DEMO] Địa chỉ IP máy tính giả lập: 192.168.1.15", "system-log");
+    addLog("[DEMO] Dải mạng quét giả lập: 192.168.1.0/24", "system-log");
+    addLog("[DEMO] Khởi động gửi gói tin ARP request broadcast...", "scan-log");
+    
+    await sleep(1000);
+    addLog("[+] Đang nhận phản hồi ARP từ các thiết bị...", "scan-log");
+    addLog("[+] Đang nhận diện nhà sản xuất (OUI lookup)...", "system-log");
+    
+    await sleep(1200);
+    document.getElementById('info-ip-range').textContent = "192.168.1.0/24 (Giả lập)";
+    
+    const mockDevices = [
+        {
+            ip: "192.168.1.1",
+            mac: "00:11:22:33:44:55",
+            name: "Gateway Router (Trung tâm)",
+            type: "router",
+            icon: "fa-wifi",
+            vendor: "Cisco Systems",
+            authorized: true
+        },
+        {
+            ip: "192.168.1.10",
+            mac: "40:23:43:af:80:83",
+            name: "Máy tính của tôi",
+            type: "laptop",
+            icon: "fa-laptop",
+            vendor: "Intel Corp",
+            authorized: true
+        },
+        {
+            ip: "192.168.1.15",
+            mac: "0e:0f:73:e7:61:9e",
+            name: "Điện thoại của tôi",
+            type: "phone",
+            icon: "fa-mobile-screen-button",
+            vendor: "Apple Inc (iPhone)",
+            authorized: true
+        },
+        {
+            ip: "192.168.1.120",
+            mac: "ec:fa:bc:11:22:33",
+            name: "Bóng đèn thông minh",
+            type: "iot",
+            icon: "fa-microchip",
+            vendor: "Tuya Smart (IoT)",
+            authorized: true
+        },
+        {
+            ip: "192.168.1.189",
+            mac: "bc:d1:d3:ef:22:90",
+            name: "IP Camera lạ",
+            type: "camera",
+            icon: "fa-video",
+            vendor: "Generic IP Camera (Rogue)",
+            authorized: false
+        }
+    ];
+
+    const routerDevice = mockDevices.find(d => d.type === 'router');
+    const nonRouterDevices = mockDevices.filter(d => d.type !== 'router');
+    
+    systemState.activeDevices = [{ ...routerDevice, angle: 0, radius: 0 }];
+    const count = nonRouterDevices.length;
+    nonRouterDevices.forEach((dev, i) => {
+        systemState.activeDevices.push({
+            ...dev,
+            angle: count > 0 ? (i * 360 / count) : 0,
+            radius: 130
+        });
+    });
+
+    initNetworkMap();
+    systemState.isScanning = false;
+    systemState.hasScanned = true;
+    
+    addLog("============================================================", "system-log");
+    addLog("    KET QUA QUET GIẢ LẬP (Tìm thấy 5 thiết bị online)", "system-log");
+    addLog("============================================================", "system-log");
+    addLog("1    192.168.1.1       00:11:22:33:44:55   hợp lệ - Gateway Router", "success-log");
+    addLog("2    192.168.1.10      40:23:43:af:80:83   hợp lệ - Máy tính của tôi", "success-log");
+    addLog("3    192.168.1.15      0e:0f:73:e7:61:9e   hợp lệ - Điện thoại của tôi", "success-log");
+    addLog("4    192.168.1.120     ec:fa:bc:11:22:33   hợp lệ - Bóng đèn thông minh", "success-log");
+    addLog("5    192.168.1.189     bc:d1:d3:ef:22:90   CẢNH BÁO: TRÁI PHÉP (UNKNOWN DEVICE)!", "alert-log");
+    addLog("------------------------------------------------------------", "system-log");
+    addLog("[CẢNH BÁO NGUY HIỂM] Phát hiện 1 thiết bị TRÁI PHÉP kết nối vào mạng!", "danger-log");
+    addLog(" -> Hãy kiểm tra lại địa chỉ MAC của thiết bị đó.", "warning-log");
+    addLog("============================================================", "system-log");
+
+    systemState.unauthorizedDetected = true;
+    playAlarmSound();
+
+    const rogue = mockDevices.find(d => !d.authorized);
+    modalIp.textContent = rogue.ip;
+    modalMac.textContent = rogue.mac;
+    modalVendor.textContent = rogue.vendor;
+    btnModalBlock.onclick = () => toggleBlockDevice(rogue.mac, true);
+    
+    const btnModalAuthorize = document.getElementById('btn-modal-authorize');
+    if (btnModalAuthorize) {
+        btnModalAuthorize.onclick = () => authorizeDevice(rogue.mac, rogue.name);
+    }
+    
+    alertModal.classList.add('active');
+
+    updateDeviceTable();
+    updateStatistics();
+    drawConnectionLines();
 }
