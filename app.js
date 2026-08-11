@@ -10,6 +10,84 @@ if (savedBackendUrl && inputBackendUrl) {
     inputBackendUrl.value = savedBackendUrl;
 }
 
+// Cấu hình Telegram Alerts
+const inputTgToken = document.getElementById('input-tg-token');
+const inputTgChatId = document.getElementById('input-tg-chatid');
+
+if (inputTgToken) {
+    inputTgToken.value = localStorage.getItem('tg_bot_token') || '';
+    inputTgToken.addEventListener('input', () => {
+        localStorage.setItem('tg_bot_token', inputTgToken.value.trim());
+    });
+}
+
+if (inputTgChatId) {
+    inputTgChatId.value = localStorage.getItem('tg_chat_id') || '';
+    inputTgChatId.addEventListener('input', () => {
+        localStorage.setItem('tg_chat_id', inputTgChatId.value.trim());
+    });
+}
+
+async function sendTelegramNotification(message) {
+    const token = (inputTgToken ? inputTgToken.value.trim() : null) || localStorage.getItem('tg_bot_token');
+    const chatId = (inputTgChatId ? inputTgChatId.value.trim() : null) || localStorage.getItem('tg_chat_id');
+    if (!token || !chatId) return;
+
+    try {
+        const url = `https://api.telegram.org/bot${token}/sendMessage`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text: message,
+                parse_mode: 'HTML'
+            })
+        });
+        return res.ok;
+    } catch (e) {
+        console.error('Lỗi gửi Telegram:', e);
+        return false;
+    }
+}
+
+window.testTelegramConnection = async function() {
+    const token = inputTgToken ? inputTgToken.value.trim() : '';
+    const chatId = inputTgChatId ? inputTgChatId.value.trim() : '';
+
+    if (!token || !chatId) {
+        addLog('[TELEGRAM] ❌ Vui lòng nhập đủ Bot Token và Chat ID trước!', 'danger-log');
+        return;
+    }
+
+    localStorage.setItem('tg_bot_token', token);
+    localStorage.setItem('tg_chat_id', chatId);
+
+    const btn = document.getElementById('btn-tg-test');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang gửi...'; }
+
+    addLog('[TELEGRAM] Đang gửi tin nhắn thử nghiệm tới Telegram...', 'scan-log');
+
+    const ok = await sendTelegramNotification(`🔔 <b>IoT Guard - Kết nối thành công!</b>\n\nBot Telegram đã được cấu hình xong và đang hoạt động bình thường.\n✅ Từ giờ bạn sẽ nhận được thông báo realtime khi:\n• Phát hiện thiết bị xâm nhập\n• Cấp phép / hủy cấp phép thiết bị\n• Cô lập hoặc mở chặn thiết bị`);
+
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Gửi tin nhắn thử nghiệm'; }
+
+    if (ok) {
+        addLog('[TELEGRAM] ✅ Gửi thành công! Kiểm tra điện thoại của bạn ngay nhé.', 'success-log');
+    } else {
+        addLog('[TELEGRAM] ❌ Gửi thất bại! Kiểm tra lại Bot Token và Chat ID có đúng không.', 'danger-log');
+    }
+};
+
+window.toggleTelegramConfig = function() {
+    const body = document.getElementById('tg-config-body');
+    const icon = document.getElementById('tg-toggle-icon');
+    if (!body) return;
+    const isHidden = body.style.display === 'none';
+    body.style.display = isHidden ? 'flex' : 'none';
+    if (icon) icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+};
+
 function getBackendUrl() {
     if (!inputBackendUrl) return "http://127.0.0.1:5000";
     let url = inputBackendUrl.value.trim();
@@ -398,9 +476,13 @@ window.toggleBlockDevice = function(mac, shouldBlock) {
         addLog(`[MITIGATION] Đang kích hoạt ARP Poisoning để cô lập thiết bị ${device.ip}...`, 'warning-log');
         addLog(`[ARP SPOOF] Gửi gói tin giả mạo tới Gateway: Báo ${device.ip} đang ở địa chỉ MAC ảo (Dead MAC)`, 'scan-log');
         addLog(`[SUCCESS] Đã cắt kết nối internet thành công của thiết bị ${device.ip} (${device.mac})!`, 'success-log');
+        
+        sendTelegramNotification(`🚫 <b>[CÔ LẬP THIẾT BỊ]</b>\nĐã ngắt kết nối mạng của thiết bị:\n• <b>IP:</b> ${device.ip}\n• <b>MAC:</b> ${device.mac}\n• <b>Trạng thái:</b> Kích hoạt chặn ARP Spoofing.`);
     } else {
         systemState.blockedDevices.delete(mac);
         addLog(`[MITIGATION] Đã ngưng ARP Poisoning. Thiết bị ${device.ip} được khôi phục kết nối.`, 'system-log');
+        
+        sendTelegramNotification(`🔓 <b>[MỞ CHẶN THIẾT BỊ]</b>\nKhôi phục kết nối mạng cho thiết bị:\n• <b>IP:</b> ${device.ip}\n• <b>MAC:</b> ${device.mac}`);
     }
 
     // Gửi yêu cầu chặn/bỏ chặn lên Python Backend
@@ -460,6 +542,8 @@ window.authorizeDevice = function(mac, defaultName) {
     updateDeviceTable();
     updateStatistics();
     
+    sendTelegramNotification(`🟢 <b>[WHITELIST - CẤP PHÉP]</b>\nThiết bị đã được phê duyệt:\n• <b>IP:</b> ${device ? device.ip : 'N/A'}\n• <b>MAC:</b> ${mac}\n• <b>Tên đặt:</b> ${deviceName}`);
+    
     const btnModalAuth = document.getElementById('btn-modal-authorize');
     if (alertModal.classList.contains('active')) {
         alertModal.classList.remove('active');
@@ -492,6 +576,8 @@ window.unauthorizeDevice = function(mac) {
     initNetworkMap();
     updateDeviceTable();
     updateStatistics();
+    
+    sendTelegramNotification(`🔴 <b>[WHITELIST - HỦY CẤP PHÉP]</b>\nĐã thu hồi quyền truy cập của thiết bị:\n• <b>IP:</b> ${device ? device.ip : 'N/A'}\n• <b>MAC:</b> ${mac}`);
 };
 
 // ==========================================
@@ -514,6 +600,8 @@ btnScan.addEventListener('click', async () => {
     updateStatistics();
     terminalLogs.innerHTML = '';
     addLog("[SCAN] Đang kết nối tới Python Scanner Backend...", "scan-log");
+    
+    sendTelegramNotification(`🔍 <b>[BẮT ĐẦU QUÉT MẠNG]</b>\nHệ thống bắt đầu quét các thiết bị trong mạng LAN/Wi-Fi thực tế...`);
 
     try {
         const response = await fetch(`${getBackendUrl()}/scan`);
@@ -575,6 +663,10 @@ btnScan.addEventListener('click', async () => {
                                 btnModalAuthorize.onclick = () => authorizeDevice(rogue.mac, rogue.name);
                             }
                             alertModal.classList.add('active');
+                            
+                            sendTelegramNotification(`⚠️ <b>[CẢNH BÁO XÂM NHẬP]</b>\nPhát hiện thiết bị TRÁI PHÉP kết nối vào mạng IoT!\n\n• <b>IP:</b> ${rogue.ip}\n• <b>MAC:</b> ${rogue.mac}\n• <b>Nhà sản xuất:</b> ${rogue.vendor}`);
+                        } else {
+                            sendTelegramNotification(`✅ <b>[QUÉT MẠNG HOÀN TẤT]</b>\nKhông phát hiện mối đe dọa nào. Mạng an toàn.\n• <b>Tổng thiết bị online:</b> ${count + 1}`);
                         }
                         updateDeviceTable();
                         updateStatistics();
@@ -646,6 +738,8 @@ btnReset.addEventListener('click', () => {
             terminalLogs.innerHTML = '';
             addLog("[SYSTEM] Hệ thống đã được khôi phục về trạng thái mặc định.");
         });
+        
+    sendTelegramNotification(`🔄 <b>[RESET HỆ THỐNG]</b>\nĐã reset trạng thái giám sát về mặc định.`);
 });
 
 // ==========================================
@@ -854,6 +948,8 @@ async function runDemoSimulation() {
     terminalLogs.innerHTML = '';
     addLog("[DEMO] Đang khởi chạy quét mạng GIẢ LẬP (Không kết nối Backend)...", "scan-log");
     
+    sendTelegramNotification(`🔍 <b>[BẮT ĐẦU QUÉT MẠNG - GIẢ LẬP]</b>\nHệ thống bắt đầu quét ở chế độ Demo (không kết nối Backend)...`);
+    
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     
     await sleep(800);
@@ -962,6 +1058,8 @@ async function runDemoSimulation() {
     }
     
     alertModal.classList.add('active');
+    
+    sendTelegramNotification(`⚠️ <b>[CẢNH BÁO XÂM NHẬP - GIẢ LẬP]</b>\nPhát hiện thiết bị giả lập TRÁI PHÉP kết nối vào mạng IoT!\n\n• <b>IP:</b> ${rogue.ip}\n• <b>MAC:</b> ${rogue.mac}\n• <b>Nhà sản xuất:</b> ${rogue.vendor}`);
 
     updateDeviceTable();
     updateStatistics();
