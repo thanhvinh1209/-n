@@ -26,6 +26,11 @@
                     <p class="subtitle">Giám sát mạng nội bộ v1.0</p>
                 </div>
             </div>
+            <div class="backend-url-config" style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                <i class="fa-solid fa-server" style="color: #3b82f6;"></i>
+                <span style="font-size: 0.85rem; color: #9ca3af; white-space: nowrap;">Backend Server:</span>
+                <input type="text" id="input-backend-url" value="http://127.0.0.1:5000" placeholder="http://127.0.0.1:5000 hoặc ngrok URL" style="background: #111827; border: 1px solid #374151; color: #10b981; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; width: 260px;" />
+            </div>
             <div class="system-status-indicator" id="system-status-container">
                 <span class="pulse-dot status-green" id="status-dot"></span>
                 <span class="status-text" id="status-text">Hệ thống: An toàn</span>
@@ -69,9 +74,6 @@
                     <button class="btn btn-primary" id="btn-scan">
                         <i class="fa-solid fa-play"></i> Bắt đầu Quét Mạng
                     </button>
-                    <button class="btn btn-warning" id="btn-simulate-rogue">
-                        <i class="fa-solid fa-skull-crossbones"></i> Giả lập Thiết bị Trái phép
-                    </button>
                     <button class="btn btn-secondary" id="btn-reset">
                         <i class="fa-solid fa-rotate-right"></i> Reset Hệ Thống
                     </button>
@@ -102,8 +104,14 @@
                     <h2><i class="fa-solid fa-terminal"></i> Nhật ký hoạt động (Terminal Logs)</h2>
                     <button class="btn-clear-terminal" id="btn-clear-logs" title="Xóa logs"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
-                <div class="terminal-body" id="terminal-logs">
-                    <div class="log-line system-log">[SYSTEM] Nhấn nút "Bắt đầu Quét Mạng" để khởi chạy hệ thống...</div>
+                <div class="terminal-body" id="terminal-body-wrapper">
+                    <div class="terminal-output" id="terminal-logs">
+                        <div class="log-line system-log">[SYSTEM] Nhấn nút "Bắt đầu Quét Mạng" hoặc nhập lệnh để khởi chạy...</div>
+                    </div>
+                    <div class="terminal-input-line">
+                        <span class="terminal-prompt">&gt;</span>
+                        <input type="text" id="terminal-input" placeholder="Nhập lệnh (gõ 'help' để xem)..." autocomplete="off" />
+                    </div>
                 </div>
             </section>
 
@@ -178,9 +186,12 @@
                 <p><strong>Địa chỉ MAC:</strong> <span id="modal-mac">bc:d1:d3:ef:22:90</span></p>
                 <p><strong>Nhà sản xuất:</strong> <span id="modal-vendor">Không rõ (Nghi vấn thiết bị hacker)</span></p>
             </div>
-            <div class="modal-actions">
-                <button class="btn btn-danger" id="btn-modal-block"><i class="fa-solid fa-ban"></i> Chặn Thiết Bị Ngay</button>
-                <button class="btn btn-secondary" id="btn-modal-close">Bỏ qua cảnh báo</button>
+            <div class="modal-actions" style="display: flex; flex-direction: column; gap: 8px;">
+                <button class="btn btn-primary" id="btn-modal-authorize" style="width: 100%; justify-content: center;"><i class="fa-solid fa-user-check"></i> Cấp Phép & Thêm Vào Whitelist</button>
+                <div style="display: flex; gap: 8px; width: 100%;">
+                    <button class="btn btn-danger" id="btn-modal-block" style="flex: 1; justify-content: center;"><i class="fa-solid fa-ban"></i> Chặn Ngay</button>
+                    <button class="btn btn-secondary" id="btn-modal-close" style="flex: 1; justify-content: center;">Bỏ qua</button>
+                </div>
             </div>
         </div>
     </div>
