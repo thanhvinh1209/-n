@@ -132,6 +132,40 @@ btnClearLogs.addEventListener('click', () => {
 // ==========================================
 let svgConnections = null;
 
+// Tính toán vị trí góc và bán kính phân lớp để tránh chồng chéo khi có nhiều thiết bị
+function getDevicePosition(index, totalCount) {
+    let radius = 120;
+    let angle = 0;
+    
+    if (totalCount <= 6) {
+        // Chỉ có 1 vòng duy nhất
+        radius = 110;
+        angle = (index * 360) / totalCount;
+    } else if (totalCount <= 12) {
+        // Phân làm 2 vòng (Vòng trong: 4, Vòng ngoài: còn lại)
+        if (index < 4) {
+            radius = 70;
+            angle = (index * 360) / 4;
+        } else {
+            radius = 120;
+            angle = ((index - 4) * 360) / (totalCount - 4) + 45; // Lệch góc để so le
+        }
+    } else {
+        // Phân làm 3 vòng (Vòng trong: 4, Vòng giữa: 6, Vòng ngoài: còn lại)
+        if (index < 4) {
+            radius = 65;
+            angle = (index * 360) / 4;
+        } else if (index < 10) {
+            radius = 105;
+            angle = ((index - 4) * 360) / 6 + 30;
+        } else {
+            radius = 145;
+            angle = ((index - 10) * 360) / (totalCount - 10) + 15;
+        }
+    }
+    return { angle, radius };
+}
+
 function initNetworkMap() {
     // Xóa hết nodes cũ
     nodesContainer.innerHTML = '';
@@ -171,7 +205,7 @@ function createDeviceNode(device) {
     // Tính toán tọa độ left và top tương đối (%) so với tâm
     // Canvas có kích thước tùy biến, chúng ta đặt tâm là 50%
     const leftOffset = 50 + (device.radius / 3) * Math.cos(angleRad); // Chia 3 để thu nhỏ tỷ lệ hiển thị
-    const topOffset = 50 + (device.radius / 2.5) * Math.sin(angleRad);
+    const topOffset = 50 + (device.radius / 3.2) * Math.sin(angleRad); // Chia 3.2 để tránh tràn viền dọc
     
     node.style.left = `${leftOffset}%`;
     node.style.top = `${topOffset}%`;
@@ -500,10 +534,11 @@ btnScan.addEventListener('click', async () => {
                         systemState.activeDevices = [{ ...routerDevice, angle: 0, radius: 0 }];
                         const count = nonRouterDevices.length;
                         nonRouterDevices.forEach((dev, i) => {
+                            const pos = getDevicePosition(i, count);
                             systemState.activeDevices.push({
                                 ...dev,
-                                angle: count > 0 ? (i * 360 / count) : 0,
-                                radius: 130
+                                angle: pos.angle,
+                                radius: pos.radius
                             });
                         });
                         initNetworkMap();
@@ -870,10 +905,11 @@ async function runDemoSimulation() {
     systemState.activeDevices = [{ ...routerDevice, angle: 0, radius: 0 }];
     const count = nonRouterDevices.length;
     nonRouterDevices.forEach((dev, i) => {
+        const pos = getDevicePosition(i, count);
         systemState.activeDevices.push({
             ...dev,
-            angle: count > 0 ? (i * 360 / count) : 0,
-            radius: 130
+            angle: pos.angle,
+            radius: pos.radius
         });
     });
 
